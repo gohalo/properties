@@ -1,30 +1,95 @@
-use std::io::Read;
+use std::io::{Read, Write};
 
-use super::Properties;
-use super::Result;
+use super::{Properties, PropertiesError, Result};
 
-fn load_convert(data: &[u8]) -> Vec<u8> {
+fn decode_unicode(data: &[u8]) -> Result<u32> {
+    let mut val: u32 = 0;
+    for &v in data {
+        match v {
+            b'0'..=b'9' => {
+                val = (val << 4) + (v - b'0') as u32;
+            }
+            b'a'..=b'f' => {
+                val = (val << 4) + 10 + (v - b'a') as u32;
+            }
+            b'A'..=b'F' => {
+                val = (val << 4) + 10 + (v - b'A') as u32;
+            }
+            _ => {
+                return Err(PropertiesError::new(
+                    format!("parse unicode failed, invalid char '{}'", v as char),
+                    None,
+                ))
+            }
+        }
+    }
+    Ok(val)
+}
+
+fn load_convert(data: &[u8]) -> Result<Vec<u8>> {
     let mut result: Vec<u8> = Vec::new();
     let mut idx = 0;
     let end = data.len();
     let mut c: u8;
+    let mut val: u32;
 
     while idx < end {
         c = data[idx];
         if c == b'\\' {
             idx = idx + 1;
-            c = match data[idx] {
-                b't' => b'\t',
-                b'r' => b'\r',
-                b'n' => b'\n',
-                b'f' => b'\x0c',
-                c => c,
-            };
+            c = data[idx];
+            if c == b'u' {
+                val = decode_unicode(&data[idx + 1..idx + 5])?;
+                idx = idx + 5;
+                if val >= 0xD800 && val <= 0xDBFF {
+                    if data[idx] != b'\\' || data[idx + 1] != b'u' {
+                        return Err(PropertiesError::new(
+                            "got lead surrogates without trail",
+                            None,
+                        ));
+                    }
+
+                    idx = idx + 2;
+                    let v = decode_unicode(&data[idx..idx + 4])?;
+                    if v < 0xDC00 || v > 0xDFFF {
+                        return Err(PropertiesError::new(
+                            format!(
+                                "invalid trail surrogates, '{:04X}' should between [0xDC00, 0xDFFF]",
+                                v
+                            ),
+                            None,
+                        ));
+                    }
+                    val = ((val - 0xD800) << 10) + v - 0xDC00 + 0x10000;
+                    idx = idx + 4;
+                }
+                match char::from_u32(val) {
+                    Some(ch) => {
+                        result.write(ch.to_string().as_bytes())?;
+                    }
+                    None => {
+                        return Err(PropertiesError::new(
+                            format!("invalid unicode '{:04X}'", val),
+                            None,
+                        ))
+                    }
+                }
+            } else {
+                match c {
+                    b't' => result.push(b'\t'),
+                    b'r' => result.push(b'\r'),
+                    b'n' => result.push(b'\n'),
+                    b'f' => result.push(b'\x0c'),
+                    _ => result.push(c),
+                };
+                idx = idx + 1;
+            }
+        } else {
+            result.push(c);
+            idx = idx + 1;
         }
-        result.push(c);
-        idx = idx + 1;
     }
-    return result;
+    return Ok(result);
 }
 
 // Read in a "logical line" from an reader, skip all comment and
@@ -155,7 +220,7 @@ impl Properties {
                     if l.len() == 0 {
                         return Ok(());
                     }
-                    //log::info!("=====> Read line {}", std::str::from_utf8(l).unwrap());
+                    println!("=====> Read line {}", std::str::from_utf8(l).unwrap());
 
                     let mut key_len = 0;
                     let mut value_start = 0;
@@ -194,14 +259,14 @@ impl Properties {
                         value_start = value_start + 1;
                     }
 
-                    //log::info!(
+                    //println!(
                     //    "Got key={} value={}",
                     //    String::from_utf8(l[..key_len].to_vec()).unwrap(),
                     //    String::from_utf8(l[value_start..].to_vec()).unwrap(),
                     //);
 
-                    let key: String = String::from_utf8(load_convert(&l[..key_len])).unwrap();
-                    let val: String = String::from_utf8(load_convert(&l[value_start..])).unwrap();
+                    let key: String = String::from_utf8(load_convert(&l[..key_len])?.to_vec())?;
+                    let val: String = String::from_utf8(load_convert(&l[value_start..])?.to_vec())?;
                     self.data.lock().unwrap().insert(key, val);
                 }
                 Err(e) => return Err(e),
@@ -215,7 +280,7 @@ mod tests {
     use super::Properties;
 
     #[test]
-    fn parse_properties() {
+    fn normal() {
         let cases = vec![
             ("", vec![]),
             ("a0=b", vec![("a0", "b")]),
@@ -234,6 +299,41 @@ mod tests {
             (
                 "a0=b\na1=c\\\nd=e\ra2=d\r\n#comment1\n#comment2\\\na3=e\\\r\n#asy\n \n#comment4",
                 vec![("a0", "b"), ("a1", "cd=e"), ("a2", "d"), ("a3", "e#asy")],
+            ),
+        ];
+        for &(input, ref r) in &cases {
+            let mut prop = Properties::new();
+            match prop.load(input.as_bytes()) {
+                Ok(_) => {
+                    if r.len() != prop.len() {
+                        panic!("invalid items, expect={} got={}", r.len(), prop.len());
+                    }
+                    for l in r {
+                        match prop.get(&l.0) {
+                            Some(val) => {
+                                if val.ne(&l.1) {
+                                    panic!("invalid key {}, expect={} got={}", l.0, l.1, val);
+                                }
+                            }
+                            None => panic!("key {} doesn't exist", l.0),
+                        }
+                    }
+                }
+                Err(e) => panic!("Load properties failed, {}", e),
+            }
+        }
+    }
+
+    #[test]
+    fn unicode() {
+        let cases = vec![
+            (
+                "a0=\\u4F60\\u597D\\u00A9\\uD83C\\uDF10\n",
+                vec![("a0", "你好©🌐")],
+            ),
+            (
+                "a0=\\u4f60\\u597d\\u00a9\\ud83c\\udf10\n",
+                vec![("a0", "你好©🌐")],
             ),
         ];
         for &(input, ref r) in &cases {

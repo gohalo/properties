@@ -7,6 +7,8 @@ use std::io::{BufRead, BufReader};
 */
 
 fn main() {
+    println!("-----> {}", '你' as u32);
+
     let s1 = "你好🌐";
     println!("{:?}", s1.as_bytes());
     let s2 = "\u{4f60}\u{597d}\u{1f310}";

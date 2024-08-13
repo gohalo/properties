@@ -28,6 +28,6 @@ fn main() {
         println!("Store properties failed, {}", e);
         return;
     }
-    //print!("Got result: {}", String::from_utf8(buff).unwrap());
-    println!("Got result: {:?}", buff);
+    print!("Got result: {}", String::from_utf8(buff).unwrap());
+    //println!("Got result: {:?}", buff);
 }

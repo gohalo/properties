@@ -4,35 +4,34 @@ This is a library for readding a
 
 # Encoding/Decoding
 
-The properties is encoded in ISO 8859-1 character encoding. Characters that
-cannot be directly represented in this encoding can be written using Unicode
-escapes.
+Java has different implements for `OutputStream` and `Writer`, which could
+test from the following code.
 
+``` java
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.Properties;
 
+public class Example {
+    public static void main(String[] args) throws IOException {
+        Properties p = new Properties();
+        p.setProperty("hello", "你好🌐");
 
+        // OutputStream(ISO 8859-1 encoding), hello=\u4F60\u597D\uD83C\uDF10
+        p.store(System.out, null);
 
+        // Writer(UTF-8 encoding), hello=你好🌐
+        FileWriter w = new FileWriter("/tmp/test.properties");
+        p.store(w, null);
+        w.close();
+    }
+}
 ```
-use datafusion::arrow::array::{Int32Array, StringArray};
-use datafusion::arrow::datatypes::{DataType, Field, Schema};
-use datafusion::arrow::record_batch::RecordBatch;
-use datafusion::dataframe::DataFrameWriteOptions;
 
-    let ctx2 = SessionContext::new();
-    let schema = Arc::new(Schema::new(vec![
-        Field::new("a", DataType::Utf8, false),
-        Field::new("b", DataType::Int32, false),
-    ]));
-    let batch = RecordBatch::try_new(
-        schema,
-        vec![
-            Arc::new(StringArray::from(vec!["a"])),
-            Arc::new(Int32Array::from(vec![1])),
-        ],
-    )?;
-    ctx2.register_batch("foobar", batch)?;
-    let df2 = ctx2.table("foobar").await?;
-    //df2.show().await?;
-    df2.write_table("foobar", DataFrameWriteOptions::new())
-        .await?;
-    //ctx.sql("INSERT INTO example SELECT * from example").await?;
-```
+For `OutputStream`, the properties is encoded in ISO 8859-1 character encoding.
+Characters that cannot be directly represented in this encoding can be written
+using Unicode escapes.
+
+And for `Writer`, it's determined by the file encoding or `-Dfile.encoding=xxx`
+argument. In most case, it will be UTF-8.
+

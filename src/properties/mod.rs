@@ -1,15 +1,12 @@
 mod reader;
 mod writer;
 
-pub use writer::WriteOption;
+pub use writer::{WriteOption, CR, CRLF, LF};
 
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use std::io::{self, Write};
 use std::sync::{Arc, Mutex};
-
-use encoding_rs::{Encoder, Encoding, WINDOWS_1252};
 
 pub struct PropertiesError {
     desc: String,
@@ -27,31 +24,31 @@ impl PropertiesError {
 
 impl Display for PropertiesError {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(fmt, "{}", self.desc)
+        write!(fmt, "{}, {:?}", self.desc, self.cause)
     }
 }
 
-impl From<io::Error> for PropertiesError {
-    fn from(e: io::Error) -> Self {
+impl From<std::io::Error> for PropertiesError {
+    fn from(e: std::io::Error) -> Self {
         PropertiesError::new("io error", Some(Box::new(e)))
+    }
+}
+
+impl From<std::string::FromUtf8Error> for PropertiesError {
+    fn from(e: std::string::FromUtf8Error) -> Self {
+        PropertiesError::new("invalid utf8 encoding", Some(Box::new(e)))
     }
 }
 
 type Result<T> = std::result::Result<T, PropertiesError>;
 
 pub struct Properties {
-    encoder: Encoder,
     data: Arc<Mutex<HashMap<String, String>>>,
 }
 
 impl Properties {
     pub fn new() -> Self {
-        Self::with_encoding(WINDOWS_1252)
-    }
-
-    pub fn with_encoding(encoding: &'static Encoding) -> Self {
         Self {
-            encoder: encoding.new_encoder(),
             data: Arc::new(Mutex::new(HashMap::new())),
         }
     }
