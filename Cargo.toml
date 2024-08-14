@@ -1,7 +1,14 @@
 [package]
-name = "properties"
+name = "props"
 version = "0.1.0"
 edition = "2021"
+license = "Apache-2.0"
+keywords = ["java", "properties"]
+readme = "README.md"
+description = "A native Rust library for reading and writing Java properties"
+homepage = "https://github.com/gohalo/properties"
+repository = "https://github.com/gohalo/properties"
+exclude = ["examples/*", "fuzz/*"]
 
 [workspace]
 members = [
