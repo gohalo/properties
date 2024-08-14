@@ -64,3 +64,7 @@ argument when start your program. In most case, it will be UTF-8.
 
 So, in this library, support UTF-8 which is the encoding for Rust. And also support
 ISO 8859-1 with the `escape_unicode` option.
+
+# License
+
+[Apache 2.0 @ GoHalo](./LICENSE)
