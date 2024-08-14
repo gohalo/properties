@@ -224,7 +224,6 @@ impl Properties {
                     if l.len() == 0 {
                         return Ok(());
                     }
-                    println!("=====> Read line {}", std::str::from_utf8(l).unwrap());
 
                     let mut key_len = 0;
                     let mut value_start = 0;

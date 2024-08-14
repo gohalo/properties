@@ -1,0 +1,32 @@
+[package]
+name = "examples"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[dev-dependencies]
+properties = { path = ".." }
+
+[[example]]
+name = "load"
+path = "load.rs"
+
+[[example]]
+name = "load_file"
+path = "load_file.rs"
+
+[[example]]
+name = "store"
+path = "store.rs"
+
+[[example]]
+name = "store_escape"
+path = "store_escape.rs"
+
+[[example]]
+name = "store_comment"
+path = "store_comment.rs"
+
+[[example]]
+name = "store_file"
+path = "store_file.rs"
