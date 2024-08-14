@@ -16,10 +16,10 @@ fn decode_unicode(data: &[u8]) -> Result<u32> {
                 val = (val << 4) + 10 + (v - b'A') as u32;
             }
             _ => {
-                return Err(PropertiesError::new(
-                    format!("parse unicode failed, invalid char '{}'", v as char),
-                    None,
-                ))
+                return Err(PropertiesError::new(format!(
+                    "parse unicode failed, invalid char '{}'",
+                    v as char
+                )))
             }
         }
     }
@@ -36,43 +36,47 @@ fn load_convert(data: &[u8]) -> Result<Vec<u8>> {
     while idx < end {
         c = data[idx];
         if c == b'\\' {
+            // must have one more byte, check line reader
             idx = idx + 1;
             c = data[idx];
             if c == b'u' {
+                if idx + 5 > end {
+                    return Err(PropertiesError::new(
+                        "invalid escape unicode, at least 4 bytes",
+                    ));
+                }
+
                 val = decode_unicode(&data[idx + 1..idx + 5])?;
                 idx = idx + 5;
                 if val >= 0xD800 && val <= 0xDBFF {
-                    if data[idx] != b'\\' || data[idx + 1] != b'u' {
+                    if idx + 6 > end {
                         return Err(PropertiesError::new(
-                            "got lead surrogates without trail",
-                            None,
+                            "invalid surrogates escape unicode, at least 6 bytes",
                         ));
+                    }
+
+                    if data[idx] != b'\\' || data[idx + 1] != b'u' {
+                        return Err(PropertiesError::new(format!(
+                            "got lead surrogates without trail {:04X}",
+                            val
+                        )));
                     }
 
                     idx = idx + 2;
                     let v = decode_unicode(&data[idx..idx + 4])?;
                     if v < 0xDC00 || v > 0xDFFF {
-                        return Err(PropertiesError::new(
-                            format!(
-                                "invalid trail surrogates, '{:04X}' should between [0xDC00, 0xDFFF]",
-                                v
-                            ),
-                            None,
-                        ));
+                        return Err(PropertiesError::new(format!(
+                            "invalid trail surrogates, '{:04X}' should between [0xDC00, 0xDFFF]",
+                            v
+                        )));
                     }
                     val = ((val - 0xD800) << 10) + v - 0xDC00 + 0x10000;
                     idx = idx + 4;
                 }
-                match char::from_u32(val) {
-                    Some(ch) => {
-                        result.write(ch.to_string().as_bytes())?;
-                    }
-                    None => {
-                        return Err(PropertiesError::new(
-                            format!("invalid unicode '{:04X}'", val),
-                            None,
-                        ))
-                    }
+
+                // should not failed here
+                if let Some(ch) = char::from_u32(val) {
+                    result.write(ch.to_string().as_bytes())?;
                 }
             } else {
                 match c {
@@ -280,6 +284,39 @@ mod tests {
     use super::Properties;
 
     #[test]
+    fn abnormal() {
+        let cases = vec![
+            ("key=\\u4xyz", "parse unicode failed, invalid char"),
+            ("key=\\u4f6", "invalid escape unicode, at least 4 bytes"),
+            (
+                "key=\\ud83c\\more data",
+                "got lead surrogates without trail",
+            ),
+            (
+                "key=\\ud83c\\ue00",
+                "invalid surrogates escape unicode, at least 6 bytes",
+            ),
+            ("key=\\ud83c\\uda00", "invalid trail surrogates"),
+            ("key=\\ud83c\\ue000", "invalid trail surrogates"),
+        ];
+        for (input, err) in &cases {
+            let mut prop = Properties::new();
+            match prop.load(input.as_bytes()) {
+                Ok(_) => {
+                    if let Some(_) = prop.get("key") {
+                        panic!("Item should not exist")
+                    }
+                    panic!("Load properties should failed")
+                }
+                Err(e) => {
+                    let msg = format!("{}", e);
+                    assert!(msg.starts_with(err), "{}", e);
+                }
+            }
+        }
+    }
+
+    #[test]
     fn normal() {
         let cases = vec![
             ("", vec![]),
@@ -288,6 +325,8 @@ mod tests {
             ("a0\tb", vec![("a0", "b")]),
             ("a0\x0cb", vec![("a0", "b")]),
             ("a0:b", vec![("a0", "b")]),
+            ("a0=\\", vec![("a0", "")]),
+            ("a0=\\b", vec![("a0", "b")]),
             ("a1 = \t\x0cb", vec![("a1", "b")]),
             ("a2=b\\:b", vec![("a2", "b:b")]),
             ("a3=b\\\n   c, d ", vec![("a3", "bc, d ")]),

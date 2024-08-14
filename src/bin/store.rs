@@ -1,8 +1,6 @@
 use foobar::properties::{Properties, WriteOption};
 
 fn main() {
-    env_logger::init();
-
     // Write to buffer.
     let mut buff = Vec::new();
     let mut prop = Properties::new();

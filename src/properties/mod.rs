@@ -14,7 +14,14 @@ pub struct PropertiesError {
 }
 
 impl PropertiesError {
-    fn new<S: Into<String>>(desc: S, cause: Option<Box<dyn Error>>) -> Self {
+    fn new<S: Into<String>>(desc: S) -> Self {
+        Self {
+            desc: desc.into(),
+            cause: None,
+        }
+    }
+
+    fn with_cause<S: Into<String>>(desc: S, cause: Option<Box<dyn Error>>) -> Self {
         Self {
             desc: desc.into(),
             cause,
@@ -24,19 +31,22 @@ impl PropertiesError {
 
 impl Display for PropertiesError {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(fmt, "{}, {:?}", self.desc, self.cause)
+        match &self.cause {
+            None => write!(fmt, "{}", self.desc),
+            Some(e) => write!(fmt, "{}, {:?}", self.desc, e),
+        }
     }
 }
 
 impl From<std::io::Error> for PropertiesError {
     fn from(e: std::io::Error) -> Self {
-        PropertiesError::new("io error", Some(Box::new(e)))
+        PropertiesError::with_cause("io error", Some(Box::new(e)))
     }
 }
 
 impl From<std::string::FromUtf8Error> for PropertiesError {
     fn from(e: std::string::FromUtf8Error) -> Self {
-        PropertiesError::new("invalid utf8 encoding", Some(Box::new(e)))
+        PropertiesError::with_cause("invalid utf8 encoding", Some(Box::new(e)))
     }
 }
 
