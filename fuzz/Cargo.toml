@@ -1,0 +1,35 @@
+[package]
+name = "examples-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.properties]
+path = ".."
+
+[[bin]]
+name = "fuzz_load"
+path = "fuzz_targets/fuzz_load.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_store"
+path = "fuzz_targets/fuzz_store.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_comment"
+path = "fuzz_targets/fuzz_comment.rs"
+test = false
+doc = false
+bench = false

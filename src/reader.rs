@@ -35,6 +35,7 @@ fn load_convert(data: &[u8]) -> Result<Vec<u8>> {
 
     while idx < end {
         c = data[idx];
+        //println!("-------> {} {}", idx, c as char);
         if c == b'\\' {
             // must have one more byte, check line reader
             idx = idx + 1;
@@ -140,12 +141,11 @@ impl LineReader {
                     }
                     return Ok(&self.line);
                 }
-                //log::info!("Read {} bytes", self.limit);
             }
             c = self.buff[self.offset];
             self.offset = self.offset + 1;
 
-            //log::info!(
+            //println!(
             //    "Handle char {}, lf={} white={} newline={} comment={} backslash={}",
             //    c as char,
             //    skip_lf,
@@ -194,6 +194,7 @@ impl LineReader {
                     is_comment_line = false;
                     is_new_line = true;
                     skip_white_space = true;
+                    preceding_backslash = false;
                     self.line.clear();
                     continue;
                 }
@@ -224,6 +225,7 @@ impl Properties {
                     if l.len() == 0 {
                         return Ok(());
                     }
+                    //println!("Got new line: {}", String::from_utf8(l.to_vec()).unwrap());
 
                     let mut key_len = 0;
                     let mut value_start = 0;
