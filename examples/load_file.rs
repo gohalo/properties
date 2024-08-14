@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::BufReader;
 
-use properties::Properties;
+use props::Properties;
 
 fn main() {
     let file = File::open("/tmp/test.properties").unwrap();

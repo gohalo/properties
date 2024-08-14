@@ -1,7 +1,7 @@
 use std::fs::OpenOptions;
 use std::io::BufWriter;
 
-use properties::{Properties, WriteOption};
+use props::{Properties, WriteOption};
 
 fn main() {
     let file = OpenOptions::new()

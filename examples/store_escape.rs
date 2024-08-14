@@ -1,4 +1,4 @@
-use properties::{Properties, WriteOption};
+use props::{Properties, WriteOption};
 
 fn main() {
     let mut buff = Vec::new();

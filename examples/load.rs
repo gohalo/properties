@@ -1,4 +1,4 @@
-use properties::Properties;
+use props::Properties;
 
 fn main() {
     let buff = "hello=\\u4f60\\u597d\\u00a9\\ud83c\\udf10\nhey=你好🌐\n".as_bytes();
